@@ -1,0 +1,5 @@
+{
+  "name": "agent-intercom-agy",
+  "version": "0.1.0",
+  "description": "AGY plugin that exposes Agent Intercom through claude-intercom-mcp."
+}
