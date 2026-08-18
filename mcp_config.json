@@ -3,8 +3,6 @@
     "agent-intercom": {
       "command": "claude-intercom-mcp",
       "env": {
-        "CLAUDE_INTERCOM_SESSION_ID": "agy-worker",
-        "CLAUDE_INTERCOM_NAME": "agy-worker",
         "CLAUDE_INTERCOM_MODEL": "agy"
       }
     }

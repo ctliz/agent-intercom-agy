@@ -28,27 +28,23 @@ Restart AGY after installation. The plugin's `mcp_config.json` runs:
 claude-intercom-mcp
 ```
 
-with these environment variables:
-
-- `CLAUDE_INTERCOM_SESSION_ID`
-- `CLAUDE_INTERCOM_NAME`
-- `CLAUDE_INTERCOM_MODEL`
+with `CLAUDE_INTERCOM_MODEL=agy`.
 
 ## Identity
 
-The supplied values are deliberately static:
+The plugin intentionally does **not** set a session ID or name. The host must
+inject a unique identity for every live AGY pane:
 
-```json
-{
-  "CLAUDE_INTERCOM_SESSION_ID": "agy-worker",
-  "CLAUDE_INTERCOM_NAME": "agy-worker",
-  "CLAUDE_INTERCOM_MODEL": "agy"
-}
+```text
+CLAUDE_INTERCOM_SESSION_ID=<stable-unique-worker-id>
+CLAUDE_INTERCOM_NAME=<display-name>
 ```
 
-Before enabling another AGY worker, change all three values, especially the
-session ID. A static ID is valid for **one worker only**; two live workers with
-the same ID collide at the broker.
+The MCP runtime also accepts `AGENT_INTERCOM_SESSION_ID` and
+`AGENT_INTERCOM_SESSION_NAME` when the Claude-compatible variables are absent.
+Do not share one session ID between live workers: the broker rejects the
+collision. If the host does not merge its environment into the MCP child,
+generate a per-pane `mcp_config.json` with the two Claude variables instead.
 
 ## Delivery behavior
 
