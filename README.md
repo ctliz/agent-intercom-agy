@@ -1,61 +1,37 @@
 # Agent Intercom for AGY
 
-A minimal native AGY plugin that starts `claude-intercom-mcp` as an MCP server.
-It gives AGY the Agent Intercom tools: `intercom_whoami`, `intercom_list`,
-`intercom_send`, `intercom_pending`, and related tools.
-
-## Requirements
-
-`claude-intercom-mcp` must be installed and available on `PATH`:
-
-```bash
-command -v claude-intercom-mcp
-```
-
-This plugin uses the shared Agent Intercom broker, normally at
-`~/.pi/agent/intercom/broker.sock`.
+A minimal AGY plugin that exposes the nine Agent Intercom MCP tools through a dedicated launcher backed by `@ctliz/agent-intercom-claude`.
 
 ## Install
 
+Install the npm package globally so the launcher is on `PATH`:
+
 ```bash
-agy plugin validate /Users/tsiji/Documents/intercom/agent-intercom-agy
-agy plugin install /Users/tsiji/Documents/intercom/agent-intercom-agy
+npm install -g @ctliz/agent-intercom-agy
+command -v agent-intercom-agy-mcp
 ```
 
-Restart AGY after installation. The plugin's `mcp_config.json` runs:
+Install the AGY plugin from its exact release tag:
 
-```text
-claude-intercom-mcp
+```bash
+git clone --depth 1 --branch v0.1.0 https://github.com/ctliz/agent-intercom-agy.git
+agy plugin validate ./agent-intercom-agy
+agy plugin install ./agent-intercom-agy
 ```
 
-with `CLAUDE_INTERCOM_MODEL=agy`.
+Restart AGY, then call `intercom_whoami` and `intercom_list`. For an existing local checkout, run `npm install` before validating and installing it.
 
 ## Identity
 
-The plugin intentionally does **not** set a session ID or name. The host must
-inject a unique identity for every live AGY pane:
+The plugin supplies `CLAUDE_INTERCOM_MODEL=agy` but deliberately does not set a session ID or name. A multi-pane supervisor must provide literal, unique values for every worker:
 
 ```text
-CLAUDE_INTERCOM_SESSION_ID=<stable-unique-worker-id>
-CLAUDE_INTERCOM_NAME=<display-name>
+AGENT_INTERCOM_SESSION_ID=<stable-unique-worker-id>
+AGENT_INTERCOM_SESSION_NAME=<display-name>
 ```
 
-The MCP runtime also accepts `AGENT_INTERCOM_SESSION_ID` and
-`AGENT_INTERCOM_SESSION_NAME` when the Claude-compatible variables are absent.
-Do not share one session ID between live workers: the broker rejects the
-collision. If the host does not merge its environment into the MCP child,
-generate a per-pane `mcp_config.json` with the two Claude variables instead.
+`CLAUDE_INTERCOM_SESSION_ID` and `CLAUDE_INTERCOM_NAME` remain higher-priority compatibility aliases. Concurrent sessions may not share an Intercom ID. Use the same `AGENT_INTERCOM_SCOPE_ID` as intended peers, or leave it unset for the default local scope.
 
 ## Delivery behavior
 
-This plugin provides MCP tools, not an AGY wake bridge. An inbound
-`intercom_send` does **not** automatically create an AGY prompt or wake an idle
-AGY session. Keep the AGY session open and call `intercom_pending` at natural
-boundaries to read inbound messages. Use `intercom_send` for normal messages;
-do not use `intercom_ask` when the receiver cannot actively poll and reply.
-
-## Quick check
-
-In a live AGY session, ask it to call `intercom_whoami`, then
-`intercom_list`. To test incoming delivery, have another Agent Intercom peer
-send a nonce and ask AGY to call `intercom_pending`.
+This package provides MCP tools, not an AGY wake bridge. Incoming messages remain durable but do not start a new AGY turn. Call `intercom_pending` at natural work boundaries. Use `intercom_send` for ordinary messages; use `intercom_ask` only when the receiver is actively polling and able to reply.

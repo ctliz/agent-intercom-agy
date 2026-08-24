@@ -1,0 +1,44 @@
+{
+  "name": "@ctliz/agent-intercom-agy",
+  "version": "0.1.0",
+  "description": "AGY plugin that exposes Agent Intercom through a packaged MCP launcher.",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "bin": {
+    "agent-intercom-agy-mcp": "bin/agent-intercom-agy-mcp.mjs"
+  },
+  "files": [
+    "plugin.json",
+    "mcp_config.json",
+    "bin/**/*",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@ctliz/agent-intercom-claude": "0.13.0-connect.7"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "keywords": [
+    "agy",
+    "mcp",
+    "agent-intercom",
+    "multi-agent"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ctliz/agent-intercom-agy.git"
+  },
+  "homepage": "https://github.com/ctliz/agent-intercom-agy#readme",
+  "bugs": {
+    "url": "https://github.com/ctliz/agent-intercom-agy/issues"
+  }
+}
