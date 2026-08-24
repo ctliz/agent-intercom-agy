@@ -14,7 +14,7 @@ command -v agent-intercom-agy-mcp
 Install the AGY plugin from its exact release tag:
 
 ```bash
-git clone --depth 1 --branch v0.1.0 https://github.com/ctliz/agent-intercom-agy.git
+git clone --depth 1 --branch v0.1.1 https://github.com/ctliz/agent-intercom-agy.git
 agy plugin validate ./agent-intercom-agy
 agy plugin install ./agent-intercom-agy
 ```
