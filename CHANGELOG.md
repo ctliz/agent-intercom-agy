@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2 - 2026-09-30
+
+- Upgrade the shared Claude MCP runtime to 0.14.1 for eager registration and named teams.
+- Add a metadata-only native `title` callback (`agent-intercom-agy-title`), bound to the exact parent AGY PID and process start time. It does not claim a broker connection and can preserve an existing renderer's input with `--passthrough`.
+- Use native conversation IDs when metadata is available, preserve explicit launcher IDs, and synchronize native renames without changing the ID. Without the optional callback, use a unique, reconnect-stable host identity rather than guessing a recent conversation.
+- Keep incoming-message delivery polling-only; AGY's turn-level Stop hook is not treated as SessionEnd.
+
 ## 0.1.1 - 2026-08-24
 
 - Publish the AGY plugin as `@ctliz/agent-intercom-agy`.
