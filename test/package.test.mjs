@@ -14,7 +14,7 @@ test("package and AGY plugin metadata stay aligned", () => {
   assert.equal(manifest.name, "@ctliz/agent-intercom-agy");
   assert.equal(plugin.version, manifest.version);
   assert.equal(mcp.mcpServers["agent-intercom"].command, "agent-intercom-agy-mcp");
-  assert.equal(manifest.dependencies["@ctliz/agent-intercom-claude"], "0.14.1");
+  assert.equal(manifest.dependencies["@ctliz/agent-intercom-claude"], "0.15.0");
   assert.equal(manifest.bin["agent-intercom-agy-title"], "bin/agent-intercom-agy-title.mjs");
   assert.deepEqual(mcp.mcpServers["agent-intercom"].env, { CLAUDE_INTERCOM_MODEL: "agy" });
 });
@@ -29,7 +29,7 @@ test("packaged launcher exposes all annotated Intercom tools", async t => {
     shell: false,
     env: { ...process.env, PI_CODING_AGENT_DIR: agentDir, AGENT_INTERCOM_SCOPE_ID: "" },
   });
-  child.stdin.end('{"jsonrpc":"2.0","id":1,"method":"tools/list"}\n');
+  child.stdin.end('{"jsonrpc":"2.0","id":1,"method":"tools/list"}\n{"jsonrpc":"2.0","id":2,"method":"initialize"}\n');
   const output = await new Promise((resolve, reject) => {
     let stdout = "";
     let stderr = "";
@@ -45,7 +45,15 @@ test("packaged launcher exposes all annotated Intercom tools", async t => {
       code === 0 ? resolve(stdout) : reject(new Error(stderr || `launcher exited ${code}`));
     });
   });
-  const tools = JSON.parse(String(output).trim()).result.tools;
+  const responses = String(output).trim().split("\n").map(line => JSON.parse(line));
+  const tools = responses.find(response => response.id === 1).result.tools;
+  assert.match(responses.find(response => response.id === 2).result.instructions, /Wait for approval/);
+  const properties = name => tools.find(tool => tool.name === name).inputSchema.properties;
+  assert.ok(properties("intercom_join").members);
+  assert.ok(properties("intercom_join").work);
+  for (const name of ["intercom_team", "intercom_send", "intercom_ask", "intercom_reply"]) assert.ok(properties(name).team);
+  assert.ok(properties("intercom_reply").askId);
+  assert.ok(properties("intercom_reply").contextId);
   assert.equal(tools.length, 10);
   assert.ok(tools.some(tool => tool.name === "intercom_join"));
   for (const tool of tools) {
