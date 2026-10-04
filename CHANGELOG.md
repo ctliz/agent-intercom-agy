@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1 - 2026-10-04
+
+- Bundle an automatically loaded AGY rule for the shortest safe Intercom calling path: send directly to known recipients, read only the selected tool definition when required, and discover peers or diagnose connection status only when needed. Preserve team approval, reply threading, and polling-only delivery.
+
 ## 0.1.2 - 2026-09-30
 
 - Upgrade the shared Claude MCP runtime to 0.14.1 for eager registration and named teams.

@@ -19,6 +19,20 @@ test("package and AGY plugin metadata stay aligned", () => {
   assert.deepEqual(mcp.mcpServers["agent-intercom"].env, { CLAUDE_INTERCOM_MODEL: "agy" });
 });
 
+test("plugin ships an automatically loaded shortest-path rule", async () => {
+  assert.ok(manifest.files.includes("rules/**/*"));
+  const rule = await readFile(new URL("../rules/AGENTS.md", import.meta.url), "utf8");
+  assert.match(rule, /Known recipient: call `intercom_send` directly/);
+  assert.match(rule, /read only the selected tool's JSON definition once/);
+  assert.match(rule, /Do not run `intercom_whoami`, `intercom_team`, `intercom_list`, or `intercom_status` as routine preflight checks/);
+  assert.match(rule, /do not create or join a team without the required approval/);
+  assert.match(rule, /AGY does not wake on incoming messages/);
+  const example = JSON.parse(rule.match(/```json\n([^`]+)\n```/)[1]);
+  assert.deepEqual(Object.keys(example).sort(), ["message", "to"]);
+  assert.equal(example.to, "next-front");
+  assert.ok(example.message.length > 0);
+});
+
 test("packaged launcher exposes all annotated Intercom tools", async t => {
   const agentDir = await mkdtemp(join(tmpdir(), "agy-mcp-tools-"));
   t.after(() => rm(agentDir, { recursive: true, force: true }));
