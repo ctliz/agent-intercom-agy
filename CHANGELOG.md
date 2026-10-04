@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0 - 2026-10-05
+
+- Add automatic incoming notifications through AGY CLI's native `agentapi send-message`, sharing the sole MCP broker owner. Batch bursts, preserve sender/team/reply selectors and attachments, and avoid injecting old messages into a different conversation.
+- Add a once-per-conversation `PreInvocation` bootstrap and `agent-intercom-agy-wake bind` command to capture native endpoint credentials from AGY's tool environment, with normal permissions, loopback validation, and private PID/start-time-bound storage.
+- Retain unread messages on native submission failure, throttle retries, and document native acknowledgement ambiguity, polling fallback, and the shared runtime's lack of inbox restoration across MCP restarts.
+
 ## 0.2.1 - 2026-10-04
 
 - Bundle an automatically loaded AGY rule for the shortest safe Intercom calling path: send directly to known recipients, read only the selected tool definition when required, and discover peers or diagnose connection status only when needed. Preserve team approval, reply threading, and polling-only delivery.

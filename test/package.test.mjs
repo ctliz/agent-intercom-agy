@@ -26,7 +26,12 @@ test("plugin ships an automatically loaded shortest-path rule", async () => {
   assert.match(rule, /read only the selected tool's JSON definition once/);
   assert.match(rule, /Do not run `intercom_whoami`, `intercom_team`, `intercom_list`, or `intercom_status` as routine preflight checks/);
   assert.match(rule, /do not create or join a team without the required approval/);
-  assert.match(rule, /AGY does not wake on incoming messages/);
+  assert.match(rule, /Incoming messages automatically notify this AGY CLI conversation/);
+  assert.match(rule, /agent-intercom-agy-wake bind/);
+  assert.ok(manifest.files.includes("hooks.json"));
+  assert.equal(manifest.bin["agent-intercom-agy-wake"], "bin/agent-intercom-agy-wake.mjs");
+  const hooks = JSON.parse(await readFile(new URL("../hooks.json", import.meta.url), "utf8"));
+  assert.equal(hooks["intercom-native-wake"].PreInvocation[0].command, "agent-intercom-agy-wake hook");
   const example = JSON.parse(rule.match(/```json\n([^`]+)\n```/)[1]);
   assert.deepEqual(Object.keys(example).sort(), ["message", "to"]);
   assert.equal(example.to, "next-front");

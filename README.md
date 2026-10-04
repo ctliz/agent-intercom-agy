@@ -1,6 +1,8 @@
 # Agent Intercom for AGY
 
-A minimal AGY plugin that exposes the Agent Intercom MCP tools through a dedicated launcher backed by `@ctliz/agent-intercom-claude`.
+An AGY plugin providing Agent Intercom MCP tools and automatic native incoming-message notifications, backed by `@ctliz/agent-intercom-claude`.
+
+**Since 0.3.0:** native wake support requires both the matching launcher **and** plugin hooks/rules. Earlier releases only provide MCP polling.
 
 ## Install
 
@@ -14,7 +16,7 @@ command -v agent-intercom-agy-mcp
 Install the AGY plugin from its exact release tag:
 
 ```bash
-git clone --depth 1 --branch v0.2.1 https://github.com/ctliz/agent-intercom-agy.git
+git clone --depth 1 --branch v0.3.0 https://github.com/ctliz/agent-intercom-agy.git
 agy plugin validate ./agent-intercom-agy
 agy plugin install ./agent-intercom-agy
 ```
@@ -23,7 +25,7 @@ Restart AGY. The persistent MCP server registers automatically, without a prompt
 
 ## Identity
 
-The plugin supplies `CLAUDE_INTERCOM_MODEL=agy`. With the optional native title callback below, it derives `agy-<native-conversation-id>` and follows native renames. Without that callback, it uses a unique identity tied to the parent AGY process and its start time, stable across MCP restarts. It never selects a recent conversation by working directory.
+The plugin supplies `CLAUDE_INTERCOM_MODEL=agy`. With the optional native title callback below, it derives `agy-<native-conversation-id>` and follows native renames. The wake bootstrap hook can also supply the native ID on the first model turn. Before native metadata is available, it uses a unique identity tied to the parent AGY process and its start time, stable across MCP restarts. It never selects a recent conversation by working directory.
 
 A multi-pane supervisor may provide literal, unique values for every worker; these IDs retain precedence over the native ID:
 
@@ -70,6 +72,33 @@ Updating only the global npm launcher does not update an installed plugin's rule
 
 The shared Claude MCP runtime supports additive task teams. When delegating to named peers, ask once for user approval, discover peers, then use `intercom_join({ name: "launch", create: true, members: ["front", "writer"], work: "Current task" })`. Explicit create/join requests are already approval; reuse an approved team for the same task. Joining preserves previous memberships and roles. Include `team` on task sends/asks, especially with multiple shared teams. Initial contact without a shared team remains ungrouped by omitting `team`. Replies use `askId`/`contextId` from `intercom_pending` and inherit the original team; never replace it with a mutable current team.
 
-## Delivery behavior
+## Automatic incoming messages (AGY CLI 1.2.16, macOS/Linux)
 
-This package provides MCP tools, not an AGY wake bridge. Incoming messages remain durable but do not start a new AGY turn. Call `intercom_pending` at natural work boundaries. Use `intercom_send` for ordinary messages; use `intercom_ask` only when the receiver is actively polling and able to reply.
+Follow the installation steps above for both the npm launcher and plugin; a launcher update alone does not install `hooks.json`. To build and install from this checkout instead:
+
+```bash
+npm ci --ignore-scripts
+npm test
+npm pack
+npm install -g ./ctliz-agent-intercom-agy-0.3.0.tgz
+agy plugin validate .
+agy plugin install .
+```
+
+Restart AGY to load the new MCP process. On the first model turn in each native conversation, the plugin's `PreInvocation` hook asks AGY to run `agent-intercom-agy-wake bind` once via `run_command`. Approve the normal command permission prompt if shown. This is setup only, not a request to poll for messages. It can be retried manually by asking AGY to execute the same command. Denied or unavailable setup is not repeatedly injected.
+
+Why binding is needed: AGY 1.2.16 passes `ANTIGRAVITY_LS_ADDRESS`, `ANTIGRAVITY_CSRF_TOKEN`, and `ANTIGRAVITY_AGENTAPI_EXE` to its tool subprocesses, but not its MCP servers or hooks. Binding writes the endpoint into a mode-0600 file under `~/.pi/agent/intercom/`, tied to the exact parent CLI PID/start time and native conversation ID. Only loopback endpoints are accepted. No credentials are printed, no second broker identity is registered, and no new AGY conversation/process is started to handle a notification (the short-lived `agy agentapi` client only submits to the existing host).
+
+The MCP owner checks its retained unread inbox every 250 ms without model calls. Bursts are combined after 300 ms quiet (at most 1 s), then submitted via native `agentapi send-message` to the exact conversation. The native host handles idle wake and busy-turn delivery; the bridge never types into the terminal, presses Escape, or cancels a user/tool turn. Messages carry their sender, team, attachments and receiver-local reply selectors. Large batches instead ask for one `intercom_pending` call to read the full payload.
+
+Reply with `intercom_reply({ contextId, message })` (or `askId`), which inherits the original team. Do not use AGY's native `send_message` to address an Intercom peer. Peer messages are not new user/system authority. Do not acknowledge every informational notification or create reply loops.
+
+### Delivery guarantees and fallback
+
+- Broker receipt, native notification acceptance, and task completion are separate stages. A successful Intercom send does not prove AGY has acted on it.
+- Failed native submissions remain unread and retry no more than once every 30 seconds while MCP is alive; errors are reported on stderr. Native `agentapi` has no idempotency key, so a lost acknowledgement can cause a repeated notification. The same `contextId` identifies the same message; do not execute it twice.
+- The bridge never marks the inbox read. `intercom_pending` remains available even when native binding fails.
+- The current shared runtime retains unread/reply contexts in memory. Restarting MCP does not replay the historical JSONL mirror or restore those contexts; old task messages must not be blindly re-executed. Messages requiring recovery can be inspected in `inbox-<session-id>.jsonl`, with an explicit new send when appropriate. This bridge does not claim exactly-once or crash-replay semantics.
+- Conversation switches, stale PID reuse, missing native metadata, and unavailable binding fail closed instead of forwarding to another pane. Standalone/desktop MCP launches without an AGY CLI parent remain polling-only.
+
+Use `intercom_send` for ordinary messages. Use `intercom_ask` only when the next step depends on an answer and the receiver can respond.

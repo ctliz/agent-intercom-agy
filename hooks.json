@@ -1,0 +1,11 @@
+{
+  "intercom-native-wake": {
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "agent-intercom-agy-wake hook",
+        "timeout": 5
+      }
+    ]
+  }
+}

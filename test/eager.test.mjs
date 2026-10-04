@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { chmodSync, copyFileSync, linkSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, linkSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -51,7 +51,7 @@ function rpc(child) {
 const hostCode = `
 import {spawn,spawnSync} from 'node:child_process';
 import {readFileSync} from 'node:fs';
-const [inputPath,titlePath,mcpPath]=process.argv.slice(1);
+const [inputPath,titlePath,mcpPath,bindPath]=process.argv.slice(1);
 let previous='';
 function render(){
   const next=readFileSync(inputPath,'utf8');
@@ -61,6 +61,8 @@ function render(){
   previous=next;
 }
 render();
+const bound=spawnSync(process.execPath,[bindPath,'bind'],{encoding:'utf8'});
+if(bound.status!==0)throw new Error(bound.stderr);
 const child=spawn(process.execPath,[mcpPath],{stdio:['pipe','inherit','inherit']});
 process.stdin.pipe(child.stdin);
 const timer=setInterval(render,50);
@@ -80,12 +82,22 @@ for (const launcherId of ["", "stable-tmux-pane"]) {
     const inputPath = join(dir, "native-input.json");
     const title = name => writeFileSync(inputPath, JSON.stringify({ conversation_id: "native-agy-session", conversation_title: name, cwd }));
     title("AGY initial");
+    const nativeLog = join(dir, "native-wakes.jsonl");
+    const nativeExe = join(dir, "native-agentapi");
+    writeFileSync(nativeExe, `#!/usr/bin/env node
+const fs = require('node:fs');
+fs.appendFileSync(${JSON.stringify(nativeLog)}, JSON.stringify(process.argv.slice(2)) + '\\n');
+console.log(JSON.stringify({response:{sendMessage:{recipientId:process.argv[5]}}}));
+`, { mode: 0o700 });
     const env = { ...process.env, PI_CODING_AGENT_DIR: dir, AGENT_INTERCOM_SCOPE_ID: "",
+      ANTIGRAVITY_CONVERSATION_ID: "native-agy-session", ANTIGRAVITY_LS_ADDRESS: "localhost:12345",
+      ANTIGRAVITY_CSRF_TOKEN: "test-only", ANTIGRAVITY_AGENTAPI_EXE: nativeExe,
       AGENT_INTERCOM_SESSION_ID: launcherId, CLAUDE_INTERCOM_SESSION_ID: "", CLAUDE_PEER_ID: "", CLAUDE_INTERCOM_INBOX: "" };
     const server = fileURLToPath(import.meta.resolve("@ctliz/agent-intercom-claude/dist/claude-server.mjs"));
     const brokerPath = fileURLToPath(import.meta.resolve("@ctliz/agent-intercom-claude/dist/broker.mjs"));
     const titlePath = fileURLToPath(new URL("../bin/agent-intercom-agy-title.mjs", import.meta.url));
     const mcpPath = fileURLToPath(new URL("../bin/agent-intercom-agy-mcp.mjs", import.meta.url));
+    const bindPath = fileURLToPath(new URL("../bin/agent-intercom-agy-wake.mjs", import.meta.url));
     const children = [];
     try {
       const broker = spawn(process.execPath, [brokerPath], { cwd, env });
@@ -100,7 +112,7 @@ for (const launcherId of ["", "stable-tmux-pane"]) {
       const request = rpc(probe);
       const list = async () => (await request("intercom_list")).structuredContent.sessions;
       const startHost = () => {
-        const child = spawn(executable, ["--input-type=module", "-e", hostCode, inputPath, titlePath, mcpPath], { cwd, env });
+        const child = spawn(executable, ["--input-type=module", "-e", hostCode, inputPath, titlePath, mcpPath, bindPath], { cwd, env });
         children.push(child); return child;
       };
       const owner = startHost();
@@ -110,7 +122,15 @@ for (const launcherId of ["", "stable-tmux-pane"]) {
       // No initialize or tool request was sent to the owner.
       title("AGY renamed 🚀");
       await until(list, peers => peers.some(peer => peer.id === expectedId && peer.name === "AGY renamed 🚀"));
-      assert.equal((await request("intercom_send", { to: expectedId, message: "before first prompt" })).isError, undefined);
+      assert.equal((await request("intercom_join", { name: "wake-team", create: true, members: [expectedId] })).isError, undefined);
+      assert.equal((await request("intercom_send", { to: expectedId, team: "wake-team", message: "before first prompt" })).isError, undefined);
+      const wakes = () => { try { return readFileSync(nativeLog, "utf8").trim().split("\n").map(JSON.parse); } catch { return []; } };
+      await until(wakes, entries => entries.length === 1);
+      assert.equal(wakes()[0][3], "native-agy-session");
+      assert.match(wakes()[0][4], /before first prompt/);
+      assert.match(wakes()[0][4], /wake-team/);
+      assert.match(wakes()[0][4], /ctx-/);
+      assert.equal((await list()).filter(peer => peer.id === expectedId).length, 1);
       await stop(owner);
       await until(list, peers => !peers.some(peer => peer.id === expectedId));
       startHost();
